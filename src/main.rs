@@ -14,6 +14,12 @@ impl<T> GraphBuilder<T> {
         idx
     }
 
+    fn add_deps(&mut self, idx: usize, deps: Vec<usize>) {
+        for dep in deps {
+            self.dependencies[idx].push(dep);
+        }
+    }
+
     fn build(self) -> Graph<T> {
         let mut outward = vec![vec![]; self.dependencies.len()];
 
@@ -90,24 +96,49 @@ impl<T> Graph<T> {
     }
 }
 
-fn main() {
+fn programs() -> Graph<&'static str> {
     let mut graph = GraphBuilder::default();
 
-    {
-        let boot = graph.add_node("boot", vec![]);
+    let boot = graph.add_node("boot", vec![]);
 
-        let xorg = graph.add_node("xorg", vec![boot]);
-        let _dwm = graph.add_node("dwm", vec![xorg]);
+    let xorg = graph.add_node("xorg", vec![boot]);
+    let _dwm = graph.add_node("dwm", vec![xorg]);
 
-        let net = graph.add_node("net", vec![boot]);
+    let net = graph.add_node("net", vec![boot]);
 
-        let _firefox = graph.add_node("firefox", vec![net, xorg]);
+    let _firefox = graph.add_node("firefox", vec![net, xorg]);
+
+    graph.build()
+}
+
+fn cycle() -> Graph<&'static str> {
+    let mut graph = GraphBuilder::default();
+
+    let a = graph.add_node("a", vec![]);
+    let b = graph.add_node("b", vec![a]);
+    let c = graph.add_node("c", vec![b]); // cant add [g, k] yet
+
+    let d = graph.add_node("d", vec![c]);
+
+    let e = graph.add_node("e", vec![d]);
+    let f = graph.add_node("f", vec![e]);
+    let g = graph.add_node("g", vec![f]);
+
+    let i = graph.add_node("i", vec![d]);
+    let j = graph.add_node("j", vec![i]);
+    let k = graph.add_node("k", vec![j]);
+
+    graph.add_deps(c, vec![g, k]);
+
+    graph.build()
+}
+
+fn main() {
+    for graph in [programs(), cycle()] {
+        let solution = graph.solve();
+
+        // get the values from the indecies
+        let solution: Vec<_> = solution.into_iter().map(|i| graph.nodes[i]).collect();
+        println!("The solution is {:?}", solution);
     }
-
-    let graph = graph.build();
-    let solution = graph.solve();
-
-    // get the values from the indecies
-    let solution: Vec<_> = solution.into_iter().map(|i| graph.nodes[i]).collect();
-    println!("The solution is {:?}", solution);
 }
