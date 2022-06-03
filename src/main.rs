@@ -5,11 +5,7 @@ struct History<T> {
 }
 
 impl<T> History<T> {
-    fn new(last: T, current: T) -> Self {
-        Self { last, current }
-    }
-
-    fn push(self, new: T) -> Self {
+    pub fn push(self, new: T) -> Self {
         Self {
             last: self.current,
             current: new,
@@ -83,7 +79,10 @@ impl<T> Graph<T> {
 
         let mut solution = Vec::new();
 
-        let mut remaining = History::new(usize::MAX, remaining_inbound.iter().sum());
+        let mut remaining = History {
+            last: usize::MAX,
+            current: remaining_inbound.iter().sum(),
+        };
 
         while remaining.current != 0 {
             if remaining.current == remaining.last {
