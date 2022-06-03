@@ -1,4 +1,36 @@
 #[derive(Default)]
+struct GraphBuilder<T> {
+    nodes: Vec<T>,
+    dependencies: Vec<Vec<usize>>,
+}
+
+impl<T> GraphBuilder<T> {
+    fn add_node(&mut self, value: T, dependencies: Vec<usize>) -> usize {
+        let idx = self.nodes.len();
+
+        self.nodes.push(value);
+        self.dependencies.push(dependencies);
+
+        idx
+    }
+
+    fn build(self) -> Graph<T> {
+        let mut outward = vec![vec![]; self.dependencies.len()];
+
+        for (from, inbound_edges) in self.dependencies.iter().enumerate() {
+            for to in inbound_edges {
+                outward[*to].push(from);
+            }
+        }
+
+        Graph {
+            nodes: self.nodes,
+            inb: self.dependencies,
+            out: outward,
+        }
+    }
+}
+
 struct Graph<T> {
     nodes: Vec<T>,
     inb: Vec<Vec<usize>>,
@@ -6,26 +38,6 @@ struct Graph<T> {
 }
 
 impl<T> Graph<T> {
-    fn add_node(&mut self, value: T, dependencies: Vec<usize>) -> usize {
-        let idx = self.nodes.len();
-        self.nodes.push(value);
-
-        self.inb.push(dependencies);
-        self.out.push(vec![]);
-
-        idx
-    }
-
-    /// Generate the forward dependency graph
-    /// i.e. flip the edges
-    fn ready(&mut self) {
-        for from in 0..self.nodes.len() {
-            for to in &self.inb[from] {
-                self.out[*to].push(from);
-            }
-        }
-    }
-
     fn solve(&self) -> Vec<usize> {
         let mut leafs = std::collections::VecDeque::new();
 
@@ -79,7 +91,7 @@ impl<T> Graph<T> {
 }
 
 fn main() {
-    let mut graph = Graph::default();
+    let mut graph = GraphBuilder::default();
 
     {
         let boot = graph.add_node("boot", vec![]);
@@ -92,7 +104,7 @@ fn main() {
         let _firefox = graph.add_node("firefox", vec![net, xorg]);
     }
 
-    graph.ready();
+    let graph = graph.build();
     let solution = graph.solve();
 
     // get the values from the indecies
