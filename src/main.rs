@@ -1,3 +1,22 @@
+/// Keeps track of the last and the current value
+struct History<T> {
+    last: T,
+    current: T,
+}
+
+impl<T> History<T> {
+    fn new(last: T, current: T) -> Self {
+        Self { last, current }
+    }
+
+    fn push(self, new: T) -> Self {
+        Self {
+            last: self.current,
+            current: new,
+        }
+    }
+}
+
 #[derive(Default)]
 struct GraphBuilder<T> {
     nodes: Vec<T>,
@@ -47,6 +66,7 @@ impl<T> Graph<T> {
     fn solve(&self) -> Vec<usize> {
         let mut leafs = std::collections::VecDeque::new();
 
+        // TODO allow even with no initial non-cycle node
         for (i, edges) in self.inb.iter().enumerate() {
             if edges.is_empty() {
                 leafs.push_back(i);
@@ -63,34 +83,67 @@ impl<T> Graph<T> {
 
         let mut solution = Vec::new();
 
-        loop {
-            let i = leafs.pop_front();
-            if i.is_none() {
-                break;
-            }
-            let i = i.unwrap();
+        let mut remaining = History::new(usize::MAX, remaining_inbound.iter().sum());
 
-            solution.push(i);
+        while remaining.current != 0 {
+            if remaining.current == remaining.last {
+                assert!(leafs.is_empty());
+                eprintln!("we got no further, break up a cycle!");
 
-            for (j, to) in self.out[i].iter().enumerate() {
-                if disabled[i][j] {
-                    continue;
+                // find the highest one
+                let rem_idx = remaining_inbound
+                    .iter()
+                    .enumerate()
+                    .fold((None, 0), |(best_i, best_v), (i, v)| {
+                        if *v > best_v {
+                            (Some(i), *v)
+                        } else {
+                            (best_i, best_v)
+                        }
+                    })
+                    .0
+                    .unwrap();
+
+                for (from, _) in self.out.iter().enumerate() {
+                    for (i, to) in self.out[from].iter().enumerate() {
+                        if *to != rem_idx {
+                            continue;
+                        }
+
+                        if disabled[from][i] {
+                            continue;
+                        }
+
+                        disabled[from][i] = true;
+                        remaining_inbound[rem_idx] -= 1;
+                    }
                 }
-                disabled[i][j] = true;
 
-                remaining_inbound[*to] -= 1;
+                leafs.push_back(rem_idx);
+            }
 
-                // if this was the last edge...
-                if remaining_inbound[*to] == 0 {
-                    leafs.push_back(*to);
+            while let Some(i) = leafs.pop_front() {
+                solution.push(i);
+
+                for (j, to) in self.out[i].iter().enumerate() {
+                    if disabled[i][j] {
+                        continue;
+                    }
+                    disabled[i][j] = true;
+
+                    remaining_inbound[*to] -= 1;
+
+                    // if this was the last edge...
+                    if remaining_inbound[*to] == 0 {
+                        leafs.push_back(*to);
+                    }
                 }
             }
+
+            remaining = remaining.push(remaining_inbound.iter().sum());
         }
 
-        let remaining_edges: usize = remaining_inbound.into_iter().sum();
-        if remaining_edges != 0 {
-            panic!("failed, probably due to a cycle!");
-        }
+        assert_eq!(remaining.current, 0);
 
         solution
     }
